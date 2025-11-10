@@ -1,0 +1,6 @@
+.pio
+
+.vscode/
+user.ini
+
+/build
