@@ -14,7 +14,7 @@
 #define MQTT_CLIENT_ID "eio-" DEVICE_ID
 
 #define LED_GPIO CONFIG_RGB_LED_PIN
-#define LED_NUM_LEDS 1
+#define LED_NUM_LEDS 64
 #define LED_TYPE WS2812B
 #define LED_COLOR_ORDER GRB
 #define LED_BRIGHTNESS 128
@@ -48,7 +48,13 @@ static void OnReceiveData(esp_mqtt_event_handle_t event)
     return;
   }
 
-  int r, g, b;
+  int i, a, r, g, b;
+  ret = json_obj_get_int(&ctx, "i", &i);
+  if (ret != OS_SUCCESS)
+  {
+    Serial.println("failed to get i");
+    return;
+  }
   ret = json_obj_get_int(&ctx, "r", &r);
   if (ret != OS_SUCCESS)
   {
@@ -67,8 +73,15 @@ static void OnReceiveData(esp_mqtt_event_handle_t event)
     Serial.println("failed to get b");
     return;
   }
-  Serial.printf("set led to r = %d, g = %d, b = %d\n", r, g, b);
-  leds[0] = CRGB(r & 0xff, g & 0xff, b & 0xff);
+  ret = json_obj_get_int(&ctx, "a", &a);
+  if (ret != OS_SUCCESS)
+  {
+    Serial.println("failed to get a");
+    return;
+  }
+  Serial.printf("set led[%d] to r = %d, g = %d, b = %d\n", i, r, g, b);
+  leds[i] = CRGB(r & 0xff, g & 0xff, b & 0xff);
+  leds[i].nscale8_video(a & 0xff);
   FastLED.show();
 }
 
