@@ -6,22 +6,34 @@
 
 #define WIFI_SSID CONFIG_NET_SSID
 #define WIFI_PASSWORD CONFIG_NET_PASSWORD
-#define DEVICE_ID CONFIG_DEVICE_ID
 
 #define MQTT_BROKER_URI CONFIG_BROKER_URL
-#define MQTT_SUBSCRIBE_TOPIC "eiot/" DEVICE_ID "/properties/downstream"
-#define MQTT_PUBLISH_TOPIC "eiot/" DEVICE_ID "/properties/upstream"
-#define MQTT_CLIENT_ID "eio-" DEVICE_ID
 
 #define LED_GPIO CONFIG_RGB_LED_PIN
 #define LED_NUM_LEDS 64
 #define LED_TYPE WS2812B
 #define LED_COLOR_ORDER GRB
 #define LED_BRIGHTNESS 128
-static CRGB leds[LED_NUM_LEDS];
 
+static CRGB leds[LED_NUM_LEDS];
+static String MAC_ADDRESS;
 static const char *TAG = "MQTT";
 static esp_mqtt_client_handle_t mqtt_client;
+
+String getSubscribeTopic(String &mac)
+{
+  return "eiot/" + mac + "/properties/downstream";
+}
+
+String getPublishTopic(String &mac)
+{
+  return "eiot/" + mac + "/properties/upstream";
+}
+
+String getClientId(String &mac)
+{
+  return "eiot-" + mac;
+}
 
 // JSON format: {"command":"SET_PROPERTIES","payload":{"r":96,"b":255,"g":0}}
 static void OnReceiveData(esp_mqtt_event_handle_t event)
@@ -88,6 +100,7 @@ static void OnReceiveData(esp_mqtt_event_handle_t event)
 // MQTT event handler function
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
+  auto sub_topic = getSubscribeTopic(MAC_ADDRESS);
   esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
 
   switch ((esp_mqtt_event_id_t)event_id)
@@ -95,10 +108,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
   case MQTT_EVENT_CONNECTED:
     Serial.println("MQTT_EVENT_CONNECTED");
     // Once connected, subscribe to a topic
-    esp_mqtt_client_subscribe(mqtt_client, MQTT_SUBSCRIBE_TOPIC, 0);
-    Serial.printf("subscribe topic %s\n", MQTT_SUBSCRIBE_TOPIC);
-    // And publish a hello message
-    // esp_mqtt_client_publish(mqtt_client, "esp32/topic", "Hello from ESP32!", 0, 1, 0);
+    esp_mqtt_client_subscribe(mqtt_client, sub_topic.c_str(), 0);
+    Serial.printf("subscribe topic %s\n", sub_topic.c_str());
     break;
   case MQTT_EVENT_DATA:
     Serial.println("MQTT_EVENT_DATA");
@@ -123,8 +134,9 @@ void mqtt_app_start(void)
 {
   // Configure the MQTT client with the broker's URI
   esp_mqtt_client_config_t mqtt_cfg = {};
+  auto client_id = getClientId(MAC_ADDRESS);
   mqtt_cfg.broker.address.uri = MQTT_BROKER_URI;
-  mqtt_cfg.credentials.client_id = MQTT_CLIENT_ID;
+  mqtt_cfg.credentials.client_id = client_id.c_str();
 
   // Initialize the client
   mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
@@ -145,11 +157,16 @@ void setup()
   FastLED.show();
 
   // Connect to Wi-Fi (you need to implement this part)
-  Serial.printf("connecting wifi: %s\n", WIFI_SSID);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED)
   {
+    Serial.printf("connecting wifi: %s...\n", WIFI_SSID);
+    sleep(1);
   }
+  Serial.printf("wifi connected\n");
+  MAC_ADDRESS = WiFi.macAddress();
+  MAC_ADDRESS.replace(":", "");
+  Serial.printf("MAC = %s\n", MAC_ADDRESS.c_str());
 
   // Start the MQTT application
   mqtt_app_start();
