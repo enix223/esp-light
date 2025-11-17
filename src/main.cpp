@@ -145,6 +145,7 @@ void setup()
   FastLED.show();
 
   // Connect to Wi-Fi (you need to implement this part)
+  Serial.printf("connecting wifi: %s\n", WIFI_SSID);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED)
   {
